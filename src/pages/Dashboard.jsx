@@ -5,10 +5,11 @@ import { UploadCloud, Sparkles, Scissors, Camera, LogOut, Loader2, CheckCircle2,
 import { generateOutfitAndText } from '../utils/aiService';
 import { auth, db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { createPreview } from '../utils/imagePreview';
 import { signOut } from 'firebase/auth';
 
 export const Dashboard = ({ navigateTo }) => {
-  const [file, setFile] = useState(null);
+  const [error, setError] = useState('');
   const [base64Fabric, setBase64Fabric] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultReady, setResultReady] = useState(false);
@@ -23,37 +24,32 @@ export const Dashboard = ({ navigateTo }) => {
   };
 
   const handleFileChange = async (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      setFile(selectedFile);
-
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Image = reader.result;
-        setBase64Fabric(base64Image);
-        await processFabric(selectedFile, base64Image);
-      };
-      reader.readAsDataURL(selectedFile);
+    const selectedFile = e.target.files?.[0];
+    e.target.value = '';
+    if (!selectedFile || isProcessing) return;
+    setError('');
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(selectedFile.type) || selectedFile.size > 10 * 1024 * 1024) {
+      setError('Choose a PNG, JPEG or WebP image up to 10 MB.');
+      return;
     }
-  };
-
-  const processFabric = async (fabricFile, base64Image) => {
     setIsProcessing(true);
     setResultReady(false);
+    setIsSaved(false);
     try {
-      const result = await generateOutfitAndText(base64Image, selectedTemplate);
+      const preview = await createPreview(selectedFile);
+      setBase64Fabric(preview);
+      const result = await generateOutfitAndText(preview, selectedTemplate);
       setAiData(result);
       setResultReady(true);
     } catch (error) {
-      console.error(error);
-      alert("Failed to analyze fabric.");
+      setError(error.message || 'Failed to analyze fabric. Please try again.');
     } finally {
       setIsProcessing(false);
     }
   };
 
   const resetStudio = () => {
-    setFile(null);
+    setError('');
     setBase64Fabric('');
     setResultReady(false);
     setIsProcessing(false);
@@ -62,10 +58,14 @@ export const Dashboard = ({ navigateTo }) => {
   };
 
   const saveReportToDatabase = async () => {
-    if (!auth.currentUser || !aiData || !base64Fabric) return;
+    if (!auth.currentUser || !aiData || !base64Fabric || isSaving || isSaved) return;
 
+    setError('');
     setIsSaving(true);
     try {
+      if (new TextEncoder().encode(JSON.stringify({ fabricImage: base64Fabric, aiData })).length > 900000) {
+        throw new Error('Report is too large to save.');
+      }
       await addDoc(collection(db, 'saved_reports'), {
         userId: auth.currentUser.uid,
         createdAt: serverTimestamp(),
@@ -73,10 +73,9 @@ export const Dashboard = ({ navigateTo }) => {
         aiData: aiData
       });
       setIsSaved(true);
-      setTimeout(() => setIsSaved(false), 3000);
     } catch (error) {
       console.error("Failed to save report:", error);
-      alert("Failed to save report.");
+      setError('Failed to save report. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -101,11 +100,11 @@ export const Dashboard = ({ navigateTo }) => {
           <h1 className="text-xl md:text-2xl font-serif tracking-widest uppercase">Aks</h1>
         </div>
         <div className="flex items-center gap-2 md:gap-4">
-          <Button variant="ghost" onClick={() => navigateTo('collection')} className="text-sm px-2 md:px-4">
+          <Button aria-label="My Collection" variant="ghost" onClick={() => navigateTo('collection')} className="text-sm px-2 md:px-4">
             <Bookmark size={18} className="md:mr-2" />
             <span className="hidden md:inline">My Collection</span>
           </Button>
-          <Button variant="ghost" onClick={handleSignOut} className="text-sm px-2 md:px-4">
+          <Button aria-label="Sign Out" variant="ghost" onClick={handleSignOut} className="text-sm px-2 md:px-4">
             <LogOut size={18} className="md:mr-2" />
             <span className="hidden md:inline">Sign Out</span>
           </Button>
@@ -114,6 +113,7 @@ export const Dashboard = ({ navigateTo }) => {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center p-8 relative">
+        <p role="alert" className="text-red-700 mb-4">{error}</p>
         <AnimatePresence mode="wait">
           {!isProcessing && !resultReady && (
             <motion.div
@@ -147,20 +147,23 @@ export const Dashboard = ({ navigateTo }) => {
 
               <div
                 onClick={handleUploadClick}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleUploadClick(); } }}
                 className="group relative cursor-pointer glass-panel rounded-3xl p-16 flex flex-col items-center justify-center border-2 border-dashed border-vintage-charcoal/20 hover:border-vintage-gold/50 transition-colors duration-500 overflow-hidden"
               >
                 <div className="absolute inset-0 bg-vintage-rose/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
                 <div className="w-24 h-24 bg-white rounded-full shadow-soft flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500 ease-out z-10">
                   <UploadCloud size={40} className="text-vintage-charcoal/80" />
                 </div>
-                <h3 className="text-xl font-serif mb-2 z-10">Drop your fabric here</h3>
-                <p className="text-sm text-vintage-charcoal/50 z-10">PNG, JPG up to 10MB</p>
+                <h3 className="text-xl font-serif mb-2 z-10">Choose your fabric image</h3>
+                <p className="text-sm text-vintage-charcoal/50 z-10">PNG, JPG or WebP up to 10MB</p>
                 <input
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileChange}
                   className="hidden"
-                  accept="image/png, image/jpeg"
+                  accept="image/png, image/jpeg, image/webp"
                 />
               </div>
             </motion.div>

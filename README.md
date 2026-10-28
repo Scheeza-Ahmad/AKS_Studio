@@ -49,3 +49,50 @@ Follow these steps to run the project locally.
 *   Node.js installed on your machine.
 *   A Google Gemini API Key.
 *   Firebase project setup.
+
+### Run locally
+
+Use Node.js 22 or newer. In the repository root:
+
+```sh
+npm ci
+cp .env.example .env
+npm run dev
+```
+
+In a second terminal:
+
+```sh
+cd backend
+npm ci
+cp .env.example .env
+# Set GEMINI_API_KEY in backend/.env
+npm start
+```
+
+The frontend uses http://localhost:8080 by default. For deployment set
+VITE_API_URL to the backend HTTPS URL before building. `/health` reports
+whether the backend has an AI key configured. Never put a Gemini key in
+VITE_ variables or source files. Rotate the previously committed test key;
+removing it from the working tree does not remove it from Git history.
+
+Firebase currently targets the existing project's named Firestore database.
+Enable Email/Password sign-in and authorize your development hostname in
+Firebase Authentication. The collection query needs an index on saved_reports:
+userId ascending, createdAt descending. Verify deployed Firestore rules only
+allow authenticated owners to read/write their own reports before production.
+This repository does not contain the deployed rules, so their security cannot
+be verified from source alone.
+
+### Checks
+
+```sh
+npm run lint
+npm run build
+cd backend
+npm test
+```
+
+Uploaded images are resized to a maximum 1200px dimension and a bounded JPEG
+preview before analysis/saving, keeping saved reports below Firestore's document
+limit. Analysis failures are displayed as errors; no fabricated report is used.

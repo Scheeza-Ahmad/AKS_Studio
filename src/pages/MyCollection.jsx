@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Loader2, ArrowLeft, Bookmark, Sparkles, Scissors, X } from 'lucide-react';
 
 export const MyCollection = ({ navigateTo }) => {
+  const [error, setError] = useState('');
   const [savedReports, setSavedReports] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState(null);
@@ -32,7 +33,8 @@ export const MyCollection = ({ navigateTo }) => {
         
         setSavedReports(reports);
       } catch (error) {
-        console.error("Error fetching collection:", error);
+        console.error('Error fetching collection:', error);
+        setError('Unable to load your collection. Please reload and try again.');
       } finally {
         setIsLoading(false);
       }
@@ -72,7 +74,7 @@ export const MyCollection = ({ navigateTo }) => {
       </header>
 
       <main className="flex-1 p-8 relative z-10 max-w-7xl mx-auto w-full">
-        {savedReports.length === 0 ? (
+        {error ? <p role="alert" className="text-red-700">{error}</p> : savedReports.length === 0 ? (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -126,7 +128,7 @@ export const MyCollection = ({ navigateTo }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-            onClick={() => setSelectedReport(null)}
+            aria-label="Close report" onClick={() => setSelectedReport(null)}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
@@ -139,7 +141,7 @@ export const MyCollection = ({ navigateTo }) => {
               
               <div className="p-6 border-b border-vintage-charcoal/10 flex justify-between items-center relative z-10 bg-vintage-cream/80 backdrop-blur-md">
                 <h2 className="text-2xl font-serif text-vintage-charcoal flex items-center gap-2 line-clamp-1" title={selectedReport.aiData?.design_name}>
-                  <Sparkles className="text-vintage-gold" size={20} shrink-0 />
+                  <Sparkles className="text-vintage-gold" size={20} />
                   <span className="truncate">{selectedReport.aiData?.design_name}</span>
                 </h2>
                 <button 
