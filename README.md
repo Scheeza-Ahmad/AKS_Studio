@@ -52,7 +52,7 @@ Follow these steps to run the project locally.
 
 ### Run locally
 
-Use Node.js 22 or newer. In the repository root:
+Use Node.js 22.12 or newer. In the repository root:
 
 ```sh
 npm ci
@@ -70,7 +70,14 @@ cp .env.example .env
 npm start
 ```
 
-The frontend uses http://localhost:8080 by default. For deployment set
+The frontend uses http://localhost:8080 by default. The backend verifies the
+Firebase ID token sent by the signed-in user before calling Gemini. On Cloud
+Run, configure the Gemini key as a server-side secret. For local development,
+configure Firebase Admin credentials with Google Application Default Credentials
+if token verification cannot access your project. Set FIREBASE_PROJECT_ID if
+using a different Firebase project.
+
+For deployment set
 VITE_API_URL to the backend HTTPS URL before building. `/health` reports
 whether the backend has an AI key configured. Never put a Gemini key in
 VITE_ variables or source files. Rotate the previously committed test key;
@@ -78,11 +85,11 @@ removing it from the working tree does not remove it from Git history.
 
 Firebase currently targets the existing project's named Firestore database.
 Enable Email/Password sign-in and authorize your development hostname in
-Firebase Authentication. The collection query needs an index on saved_reports:
-userId ascending, createdAt descending. Verify deployed Firestore rules only
-allow authenticated owners to read/write their own reports before production.
-This repository does not contain the deployed rules, so their security cannot
-be verified from source alone.
+Firebase Authentication. `firestore.rules` and `firestore.indexes.json` now
+define owner-only access and the collection index for that named database.
+Deploy them with the Firebase CLI after reviewing the target project and
+database: `firebase deploy --only firestore`. Committing these files does not
+change the live database until deployment.
 
 ### Checks
 
@@ -92,6 +99,8 @@ npm run build
 cd backend
 npm test
 ```
+
+The GitHub Actions workflow runs these checks on pushes and pull requests.
 
 Uploaded images are resized to a maximum 1200px dimension and a bounded JPEG
 preview before analysis/saving, keeping saved reports below Firestore's document

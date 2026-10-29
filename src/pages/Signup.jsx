@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { auth } from '../firebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { Sparkles, Loader2, AlertCircle } from 'lucide-react';
 
 export const Signup = ({ navigateTo }) => {
@@ -17,7 +17,7 @@ export const Signup = ({ navigateTo }) => {
     e.preventDefault();
     setError('');
 
-    if (!name || !email || !password) {
+    if (!name.trim() || !email.trim() || !password) {
       setError('Please fill in all fields.');
       return;
     }
@@ -29,7 +29,12 @@ export const Signup = ({ navigateTo }) => {
 
     setLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      try {
+        await updateProfile(credential.user, { displayName: name.trim() });
+      } catch (profileError) {
+        console.warn('Account created, but display name could not be saved:', profileError);
+      }
       // Navigation is handled by App.jsx
     } catch (err) {
       console.error(err);

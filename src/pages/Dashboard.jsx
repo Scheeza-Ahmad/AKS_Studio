@@ -86,6 +86,7 @@ export const Dashboard = ({ navigateTo }) => {
       await signOut(auth);
     } catch (error) {
       console.error("Failed to log out", error);
+      setError('Failed to sign out. Please try again.');
     }
   };
 
@@ -113,7 +114,7 @@ export const Dashboard = ({ navigateTo }) => {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center p-8 relative">
-        <p role="alert" className="text-red-700 mb-4">{error}</p>
+        {error && <p role="alert" className="text-red-700 mb-4">{error}</p>}
         <AnimatePresence mode="wait">
           {!isProcessing && !resultReady && (
             <motion.div
@@ -134,6 +135,8 @@ export const Dashboard = ({ navigateTo }) => {
                 {["Modern Lehenga", "A-Line Kurta", "Classic Gharara"].map(template => (
                   <button
                     key={template}
+                    type="button"
+                    aria-pressed={selectedTemplate === template}
                     onClick={() => setSelectedTemplate(template)}
                     className={`px-6 py-2 rounded-full font-serif transition-all duration-300 ${selectedTemplate === template
                       ? 'bg-vintage-charcoal text-vintage-gold shadow-md'

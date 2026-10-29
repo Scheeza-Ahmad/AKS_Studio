@@ -2,14 +2,28 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
+import { initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import { parseFabricImage, reportFields, validateReport } from './validation.js';
 dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '14mb' }));
 const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
+initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID || 'gen-lang-client-0352686033' });
 app.get('/health', (_req, res) => res.json({ status: 'ok', aiConfigured: Boolean(ai) }));
-app.post('/api/generate', async (req, res) => {
+async function requireUser(req, res, next) {
+  const token = /^Bearer (\S+)$/.exec(req.get('authorization') || '')?.[1];
+  if (!token) return res.status(401).json({ error: 'Please sign in to analyze fabric.' });
+  try {
+    req.user = await getAuth().verifyIdToken(token);
+    next();
+  } catch (error) {
+    console.warn('Invalid Firebase ID token:', error.code || error.message);
+    res.status(401).json({ error: 'Your session has expired. Please sign in again.' });
+  }
+}
+app.post('/api/generate', requireUser, async (req, res) => {
   let image;
   const { fabricImage, templateType = 'A-Line Kurta' } = req.body || {};
   try {

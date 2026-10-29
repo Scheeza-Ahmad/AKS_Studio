@@ -5,6 +5,10 @@ import { db, auth } from '../firebase';
 import { Button } from '../components/ui/Button';
 import { Loader2, ArrowLeft, Bookmark, Sparkles, Scissors, X } from 'lucide-react';
 
+const reportText = (value) => typeof value === 'string' ? value : value && typeof value === 'object'
+  ? Object.entries(value).map(([key, item]) => `${key.replace(/_/g, ' ')}: ${String(item)}`).join(' • ')
+  : '';
+
 export const MyCollection = ({ navigateTo }) => {
   const [error, setError] = useState('');
   const [savedReports, setSavedReports] = useState([]);
@@ -12,6 +16,16 @@ export const MyCollection = ({ navigateTo }) => {
   const [selectedReport, setSelectedReport] = useState(null);
 
   useEffect(() => {
+    if (!selectedReport) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setSelectedReport(null);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [selectedReport]);
+
+  useEffect(() => {
+    let active = true;
     const fetchReports = async () => {
       if (!auth.currentUser) {
         navigateTo('login');
@@ -31,16 +45,17 @@ export const MyCollection = ({ navigateTo }) => {
           reports.push({ id: doc.id, ...doc.data() });
         });
         
-        setSavedReports(reports);
+        if (active) setSavedReports(reports);
       } catch (error) {
         console.error('Error fetching collection:', error);
-        setError('Unable to load your collection. Please reload and try again.');
+        if (active) setError('Unable to load your collection. Please reload and try again.');
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     };
 
     fetchReports();
+    return () => { active = false; };
   }, [navigateTo]);
 
   if (isLoading) {
@@ -101,6 +116,9 @@ export const MyCollection = ({ navigateTo }) => {
                 transition={{ delay: index * 0.1 }}
                 className="glass-panel rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow border border-vintage-charcoal/5 flex flex-col h-full"
               >
+                {typeof report.fabricImage === 'string' && report.fabricImage.startsWith('data:image/') && (
+                  <img src={report.fabricImage} alt="Saved fabric" className="w-full h-40 object-cover rounded-2xl mb-4" />
+                )}
                 <div className="flex justify-between items-start mb-4 gap-2">
                   <h3 className="text-xl font-serif text-vintage-charcoal line-clamp-1" title={report.aiData?.design_name}>
                     {report.aiData?.design_name || "Bespoke Design"}
@@ -108,7 +126,7 @@ export const MyCollection = ({ navigateTo }) => {
                 </div>
                 
                 <p className="text-vintage-charcoal/70 text-sm mb-6 line-clamp-3 font-light leading-relaxed flex-grow">
-                  {report.aiData?.fabric_analysis}
+                  {reportText(report.aiData?.fabric_analysis)}
                 </p>
 
                 <Button variant="secondary" className="w-full text-sm" onClick={() => setSelectedReport(report)}>
@@ -128,23 +146,26 @@ export const MyCollection = ({ navigateTo }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-            aria-label="Close report" onClick={() => setSelectedReport(null)}
+            onClick={() => setSelectedReport(null)}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="report-title"
               className="bg-vintage-cream w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden relative max-h-[90vh] flex flex-col"
             >
               <div className="absolute top-0 right-0 w-64 h-64 bg-vintage-gold/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
               
               <div className="p-6 border-b border-vintage-charcoal/10 flex justify-between items-center relative z-10 bg-vintage-cream/80 backdrop-blur-md">
-                <h2 className="text-2xl font-serif text-vintage-charcoal flex items-center gap-2 line-clamp-1" title={selectedReport.aiData?.design_name}>
+                <h2 id="report-title" className="text-2xl font-serif text-vintage-charcoal flex items-center gap-2 line-clamp-1" title={selectedReport.aiData?.design_name}>
                   <Sparkles className="text-vintage-gold" size={20} />
                   <span className="truncate">{selectedReport.aiData?.design_name}</span>
                 </h2>
-                <button 
+                <button type="button" aria-label="Close report"
                   onClick={() => setSelectedReport(null)}
                   className="p-2 hover:bg-vintage-charcoal/5 rounded-full transition-colors text-vintage-charcoal/60 hover:text-vintage-charcoal flex-shrink-0"
                 >
@@ -156,7 +177,7 @@ export const MyCollection = ({ navigateTo }) => {
                 <div className="bg-white/50 rounded-2xl p-5 border border-white/60 shadow-sm">
                   <h3 className="text-xs uppercase tracking-widest text-vintage-gold font-bold mb-2">Fabric Analysis</h3>
                   <p className="text-vintage-charcoal/90 font-light leading-relaxed">
-                    {selectedReport.aiData?.fabric_analysis}
+                    {reportText(selectedReport.aiData?.fabric_analysis)}
                   </p>
                 </div>
 

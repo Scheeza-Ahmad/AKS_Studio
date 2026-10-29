@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /saved_reports/{reportId} {
+      allow get, list: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['userId', 'createdAt', 'fabricImage', 'aiData'])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.fabricImage is string
+        && request.resource.data.fabricImage.size() <= 600000
+        && request.resource.data.aiData is map
+        && request.resource.data.aiData.keys().hasAll(['design_name', 'fabric_analysis', 'tailoring_instructions', 'styling_accessories']);
+      allow update, delete: if false;
+    }
+  }
+}

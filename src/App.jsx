@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react'
-import { Login } from './pages/Login'
-import { Signup } from './pages/Signup'
-import { Dashboard } from './pages/Dashboard'
-import { MyCollection } from './pages/MyCollection'
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from './firebase'
 import { Loader2 } from 'lucide-react'
+
+const Login = lazy(() => import('./pages/Login').then(module => ({ default: module.Login })))
+const Signup = lazy(() => import('./pages/Signup').then(module => ({ default: module.Signup })))
+const Dashboard = lazy(() => import('./pages/Dashboard').then(module => ({ default: module.Dashboard })))
+const MyCollection = lazy(() => import('./pages/MyCollection').then(module => ({ default: module.MyCollection })))
 
 function App() {
   const [currentRoute, setCurrentRoute] = useState('login');
@@ -28,9 +29,9 @@ function App() {
     return () => unsubscribe();
   }, [currentRoute]);
 
-  const navigateTo = (route) => {
+  const navigateTo = useCallback((route) => {
     setCurrentRoute(route);
-  };
+  }, []);
 
   if (isLoading) {
     return (
@@ -49,12 +50,14 @@ function App() {
       </div>
       
       <div className="relative z-10 w-full min-h-screen">
-        <AnimatePresence mode="wait">
-          {currentRoute === 'login' && <Login key="login" navigateTo={navigateTo} />}
-          {currentRoute === 'signup' && <Signup key="signup" navigateTo={navigateTo} />}
-          {currentRoute === 'dashboard' && <Dashboard key="dashboard" navigateTo={navigateTo} />}
-          {currentRoute === 'collection' && <MyCollection key="collection" navigateTo={navigateTo} />}
-        </AnimatePresence>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="w-12 h-12 text-vintage-gold animate-spin" /></div>}>
+          <AnimatePresence mode="wait">
+            {currentRoute === 'login' && <Login key="login" navigateTo={navigateTo} />}
+            {currentRoute === 'signup' && <Signup key="signup" navigateTo={navigateTo} />}
+            {currentRoute === 'dashboard' && <Dashboard key="dashboard" navigateTo={navigateTo} />}
+            {currentRoute === 'collection' && <MyCollection key="collection" navigateTo={navigateTo} />}
+          </AnimatePresence>
+        </Suspense>
       </div>
     </div>
   )

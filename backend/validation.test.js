@@ -2,10 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseFabricImage, validateReport, reportFields } from './validation.js';
 test('preserves supported image MIME types', () => {
-  for (const type of ['png', 'jpeg', 'webp']) assert.deepEqual(parseFabricImage(`data:image/${type};base64,YQ==`), { mimeType: `image/${type}`, data: 'YQ==' });
+  const images = {
+    png: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    jpeg: Buffer.from([255, 216, 255]),
+    webp: Buffer.from('RIFF0000WEBP'),
+  };
+  for (const [type, bytes] of Object.entries(images)) {
+    const data = bytes.toString('base64');
+    assert.deepEqual(parseFabricImage(`data:image/${type};base64,${data}`), { mimeType: `image/${type}`, data });
+  }
 });
 test('rejects malformed or unsupported uploads', () => {
-  for (const value of [null, {}, '', 'data:image/svg+xml;base64,YQ==', 'data:image/png;base64,?!', 'data:image/png;base64,YQ=']) assert.throws(() => parseFabricImage(value));
+  for (const value of [null, {}, '', 'data:image/svg+xml;base64,YQ==', 'data:image/png;base64,?!', 'data:image/png;base64,YQ=', 'data:image/png;base64,YQ==']) assert.throws(() => parseFabricImage(value));
 });
 test('rejects images above 10 MB', () => {
   assert.throws(() => parseFabricImage('data:image/png;base64,' + Buffer.alloc(10 * 1024 * 1024 + 1).toString('base64')));
