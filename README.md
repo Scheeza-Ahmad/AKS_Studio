@@ -47,7 +47,7 @@ Follow these steps to run the project locally.
 
 ### Prerequisites
 *   Node.js installed on your machine.
-*   A Google Gemini API Key.
+*   A Google Gemini API key and/or xAI API key for Grok fallback.
 *   Firebase project setup.
 
 ### Run locally
@@ -66,11 +66,14 @@ In a second terminal:
 cd backend
 npm ci
 cp .env.example .env
-# Set GEMINI_API_KEY in backend/.env
+# Set GEMINI_API_KEY and XAI_API_KEY in backend/.env
 npm start
 ```
 
-The frontend uses http://localhost:8080 by default. The backend verifies the
+The frontend uses http://localhost:8080 by default. The backend tries Gemini
+first, then Grok if Gemini fails or is unconfigured. It returns the provider
+used with each report. Both keys stay on the backend; without either key,
+analysis is unavailable. The backend verifies the
 Firebase ID token sent by the signed-in user before calling Gemini. On Cloud
 Run, configure the Gemini key as a server-side secret. For local development,
 configure Firebase Admin credentials with Google Application Default Credentials
